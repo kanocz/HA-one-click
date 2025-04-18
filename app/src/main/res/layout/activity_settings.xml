@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="@color/windowBackground">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/app_settings"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/textColor"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/home_assistant_url_label"
+            android:textColor="@color/textColor"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/edit_home_assistant_url"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="@string/home_assistant_url_hint"
+                android:inputType="textUri"
+                android:textColor="@color/textColor" />
+
+            <Button
+                android:id="@+id/button_discover"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="@string/discover" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/text_discovery_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/textColor"
+            android:visibility="gone"
+            android:layout_marginBottom="8dp" />
+            
+        <ListView
+            android:id="@+id/list_discovered_instances"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone"
+            android:maxHeight="200dp"
+            android:layout_marginBottom="8dp" />
+            
+        <ProgressBar
+            android:id="@+id/progress_discovery"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:visibility="gone"
+            android:layout_marginBottom="8dp" />
+
+        <!-- Authentication Method Selection -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Authentication Method"
+            android:textColor="@color/textColor"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp" />
+
+        <RadioGroup
+            android:id="@+id/radio_group_auth_method"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="8dp">
+
+            <RadioButton
+                android:id="@+id/radio_token"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Long-Lived Access Token"
+                android:checked="true"
+                android:textColor="@color/textColor" />
+
+            <RadioButton
+                android:id="@+id/radio_oauth2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="OAuth2"
+                android:textColor="@color/textColor" />
+        </RadioGroup>
+
+        <!-- Token Authentication Section -->
+        <LinearLayout
+            android:id="@+id/layout_token_auth"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/home_assistant_token_label"
+                android:textColor="@color/textColor"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/edit_home_assistant_token"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="@string/home_assistant_token_hint"
+                android:inputType="textPassword"
+                android:textColor="@color/textColor"
+                android:layout_marginBottom="16dp" />
+        </LinearLayout>
+
+        <!-- OAuth2 Authentication Section -->
+        <LinearLayout
+            android:id="@+id/layout_oauth_auth"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="OAuth2 Client ID"
+                android:textColor="@color/textColor"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/edit_oauth_client_id"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter client ID"
+                android:inputType="text"
+                android:textColor="@color/textColor"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="OAuth2 Client Secret (Optional)"
+                android:textColor="@color/textColor"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/edit_oauth_client_secret"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter client secret (if required)"
+                android:inputType="textPassword"
+                android:textColor="@color/textColor"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/button_start_oauth"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Connect with OAuth2"
+                android:layout_marginBottom="16dp" />
+        </LinearLayout>
+
+        <!-- Test Connection Section -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp">
+            
+            <Button
+                android:id="@+id/button_test_connection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Test Connection" />
+                
+            <TextView
+                android:id="@+id/text_connection_status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:visibility="gone"
+                android:textColor="@color/textColor" />
+                
+            <ScrollView
+                android:id="@+id/scroll_connection_details"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:visibility="gone"
+                android:maxHeight="200dp">
+                
+                <TextView
+                    android:id="@+id/text_connection_details"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="12sp"
+                    android:fontFamily="monospace"
+                    android:background="#f0f0f0"
+                    android:padding="8dp"
+                    android:textColor="#333333" />
+            </ScrollView>
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/button_save_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/save_settings" />
+
+    </LinearLayout>
+</ScrollView>
