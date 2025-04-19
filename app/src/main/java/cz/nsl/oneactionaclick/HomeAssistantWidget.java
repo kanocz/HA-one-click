@@ -8,6 +8,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
+import android.view.View;
 import android.widget.RemoteViews;
 
 /**
@@ -81,8 +82,8 @@ public class HomeAssistantWidget extends AppWidgetProvider {
         views.setInt(R.id.widget_container, "setBackgroundColor", transparentColor);
         
         // Create an Intent to launch the confirmation activity when widget is clicked
-        Intent intent = new Intent(context, ConfirmActionActivity.class);
-        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+        Intent actionIntent = new Intent(context, ConfirmActionActivity.class);
+        actionIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
         
         // Use appropriate flag based on the Android version
         int flags = PendingIntent.FLAG_UPDATE_CURRENT;
@@ -90,11 +91,35 @@ public class HomeAssistantWidget extends AppWidgetProvider {
             flags |= PendingIntent.FLAG_IMMUTABLE;
         }
         
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, appWidgetId, intent, flags);
+        PendingIntent actionPendingIntent = PendingIntent.getActivity(context, appWidgetId, actionIntent, flags);
         
-        // Set click listener on the entire widget
-        views.setOnClickPendingIntent(R.id.widget_text, pendingIntent);
-        views.setOnClickPendingIntent(R.id.widget_icon, pendingIntent);
+        // Set click listener to perform action (normal click)
+        views.setOnClickPendingIntent(R.id.widget_text, actionPendingIntent);
+        views.setOnClickPendingIntent(R.id.widget_icon, actionPendingIntent);
+        
+        // For older Android versions (pre-Android 12), add a gear icon for configuration
+        // For Android 12+ (S), rely on the system's built-in widget configuration menu
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            // Only show gear icon on older Android versions
+            views.setViewVisibility(R.id.widget_settings, View.VISIBLE);
+            
+            // Create an Intent to launch the configuration activity for editing the widget
+            Intent configIntent = new Intent(context, WidgetConfigActivity.class);
+            configIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+            configIntent.setAction(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE);
+            
+            PendingIntent configPendingIntent = PendingIntent.getActivity(
+                    context, 
+                    appWidgetId + 10000, // Use different request code to avoid conflicts
+                    configIntent, 
+                    flags
+            );
+            
+            views.setOnClickPendingIntent(R.id.widget_settings, configPendingIntent);
+        } else {
+            // Hide gear icon on Android 12+ as we'll use the system's configuration option
+            views.setViewVisibility(R.id.widget_settings, View.GONE);
+        }
         
         // Instruct the widget manager to update the widget
         appWidgetManager.updateAppWidget(appWidgetId, views);

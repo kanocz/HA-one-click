@@ -64,6 +64,11 @@ public class WidgetConfigActivity extends Activity {
     private HomeAssistantService selectedService;
     private HomeAssistantEntity selectedEntity;
 
+    // Flags to track data loading completion
+    private boolean servicesLoaded = false;
+    private boolean entitiesLoaded = false;
+    private boolean restoringSelections = false; // Flag to prevent listeners interfering during restore
+
     // Shared preferences file name
     private static final String PREFS_NAME = "cz.nsl.oneactionaclick.WidgetPrefs";
 
@@ -315,6 +320,19 @@ public class WidgetConfigActivity extends Activity {
         // Load saved transparency value
         int savedTransparency = getTransparency(this, appWidgetId);
         transparencySeekBar.setProgress(savedTransparency);
+        
+        // Load saved confirmation settings
+        boolean requireConfirmation = requiresConfirmation(this, appWidgetId);
+        switchRequireConfirmation.setChecked(requireConfirmation);
+        
+        // Load saved confirmation message
+        String confirmationMessage = getConfirmationMessage(this, appWidgetId);
+        if (!confirmationMessage.isEmpty()) {
+            editConfirmationMessage.setText(confirmationMessage);
+        }
+        
+        // Update confirmation message container visibility based on switch state
+        confirmationMessageContainer.setVisibility(requireConfirmation ? View.VISIBLE : View.GONE);
 
         // Disable save button until we have loaded necessary data
         saveButton.setEnabled(false);
@@ -338,7 +356,9 @@ public class WidgetConfigActivity extends Activity {
                     clearServicesSpinner();
                     clearEntitiesSpinner();
                 }
-                updateSaveButtonState();
+                if (!restoringSelections) { // Only update button state if not restoring
+                    updateSaveButtonState();
+                }
             }
 
             @Override
@@ -346,7 +366,9 @@ public class WidgetConfigActivity extends Activity {
                 selectedDomain = null;
                 clearServicesSpinner();
                 clearEntitiesSpinner();
-                updateSaveButtonState();
+                if (!restoringSelections) {
+                    updateSaveButtonState();
+                }
             }
         });
 
@@ -360,13 +382,17 @@ public class WidgetConfigActivity extends Activity {
                 } else {
                     selectedService = null;
                 }
-                updateSaveButtonState();
+                if (!restoringSelections) {
+                    updateSaveButtonState();
+                }
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
                 selectedService = null;
-                updateSaveButtonState();
+                if (!restoringSelections) {
+                    updateSaveButtonState();
+                }
             }
         });
 
@@ -374,22 +400,31 @@ public class WidgetConfigActivity extends Activity {
         spinnerEntity.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (position > 0 && entitiesByDomain != null &&
+                // Check if selectedDomain is valid and entities exist for it
+                if (position > 0 && selectedDomain != null && entitiesByDomain != null &&
                         entitiesByDomain.containsKey(selectedDomain)) {
                     List<HomeAssistantEntity> entities = entitiesByDomain.get(selectedDomain);
+                    // Ensure entities list is sorted the same way as in updateEntitiesSpinner
+                    Collections.sort(entities, Comparator.comparing(HomeAssistantEntity::getFriendlyName));
                     if (entities != null && entities.size() >= position) {
                         selectedEntity = entities.get(position - 1); // Offset for prompt item
+                    } else {
+                        selectedEntity = null; // Should not happen if position is valid, but safety check
                     }
                 } else {
                     selectedEntity = null;
                 }
-                updateSaveButtonState();
+                if (!restoringSelections) {
+                    updateSaveButtonState();
+                }
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
                 selectedEntity = null;
-                updateSaveButtonState();
+                if (!restoringSelections) {
+                    updateSaveButtonState();
+                }
             }
         });
     }
@@ -468,6 +503,10 @@ public class WidgetConfigActivity extends Activity {
      * Loads domains and services from Home Assistant
      */
     private void loadHomeAssistantData() {
+        // Reset flags
+        servicesLoaded = false;
+        entitiesLoaded = false;
+
         // Show progress indicators
         progressDomains.setVisibility(View.VISIBLE);
         progressServices.setVisibility(View.VISIBLE);
@@ -475,6 +514,7 @@ public class WidgetConfigActivity extends Activity {
 
         // Clear any previous error
         textError.setVisibility(View.GONE);
+        scrollErrorDetails.setVisibility(View.GONE); // Also hide details view initially
 
         Log.d("WidgetConfigActivity", "Starting to fetch services from Home Assistant");
 
@@ -485,17 +525,18 @@ public class WidgetConfigActivity extends Activity {
                 if (services == null || services.isEmpty()) {
                     Log.e("WidgetConfigActivity", "Received empty services map");
                     progressServices.setVisibility(View.GONE);
+                    progressDomains.setVisibility(View.GONE); // Hide domain progress too
                     displayError("No services available. Please check your Home Assistant connection.");
                     return;
                 }
 
                 Log.d("WidgetConfigActivity", "Services loaded successfully: " + services.size() + " domains");
                 servicesByDomain = services;
-                updateDomainSpinner();
-                progressServices.setVisibility(View.GONE);
+                updateDomainSpinner(); // Update domain spinner now that we have domains
+                progressServices.setVisibility(View.GONE); // Hide service progress
 
-                // Try to restore saved settings
-                restoreSavedSelections();
+                servicesLoaded = true;
+                checkDataLoadedAndRestore(); // Check if both loaded
             }
 
             @Override
@@ -522,8 +563,8 @@ public class WidgetConfigActivity extends Activity {
             @Override
             public void onEntitiesLoaded(List<HomeAssistantEntity> entities) {
                 // This method is optional since we use grouped entities
-                Log.d("WidgetConfigActivity", "Entities loaded: " + (entities != null ? entities.size() : 0));
-                progressEntities.setVisibility(View.GONE);
+                Log.d("WidgetConfigActivity", "Entities loaded (ungrouped): " + (entities != null ? entities.size() : 0));
+                // Don't hide progress here, wait for grouped entities
             }
 
             @Override
@@ -537,15 +578,10 @@ public class WidgetConfigActivity extends Activity {
 
                 Log.d("WidgetConfigActivity", "Entities by domain loaded: " + entities.size() + " domains");
                 entitiesByDomain = entities;
-                progressEntities.setVisibility(View.GONE);
+                progressEntities.setVisibility(View.GONE); // Hide entity progress
 
-                // Update entity spinner if domain is already selected
-                if (selectedDomain != null) {
-                    updateEntitiesSpinner();
-                }
-
-                // Try to restore saved settings
-                restoreSavedSelections();
+                entitiesLoaded = true;
+                checkDataLoadedAndRestore(); // Check if both loaded
             }
 
             @Override
@@ -565,68 +601,168 @@ public class WidgetConfigActivity extends Activity {
     }
 
     /**
-     * Restore previously saved selections when editing a widget
+     * Checks if both services and entities are loaded, and if so, restores selections.
+     */
+    private synchronized void checkDataLoadedAndRestore() {
+        if (servicesLoaded && entitiesLoaded) {
+            Log.d("WidgetConfigActivity", "Both services and entities loaded. Restoring selections.");
+            restoreSavedSelections();
+        } else {
+            Log.d("WidgetConfigActivity", "checkDataLoadedAndRestore called, but not ready. Services: " + servicesLoaded + ", Entities: " + entitiesLoaded);
+        }
+    }
+
+    /**
+     * Restore previously saved selections when editing a widget.
+     * Should only be called AFTER servicesByDomain and entitiesByDomain are populated.
      */
     private void restoreSavedSelections() {
-        if (servicesByDomain == null || entitiesByDomain == null) {
-            // Wait until both services and entities are loaded
+        // Get saved values
+        final String savedDomain = getServiceDomain(this, appWidgetId);
+        final String savedService = getServiceName(this, appWidgetId);
+        final String savedEntityId = getEntityId(this, appWidgetId);
+        final int savedIconIndex = getIconIndex(this, appWidgetId);
+
+        Log.d("WidgetConfigActivity", "Attempting restore - Domain: " + savedDomain +
+              ", Service: " + savedService + ", Entity: " + savedEntityId +
+              ", Icon: " + savedIconIndex);
+
+        // Check if we have actual saved values (not defaults) or if it's a new widget
+        boolean isExistingConfig = !savedDomain.equals("light") || !savedService.equals("toggle") ||
+                                   !savedEntityId.equals("light.living_room") || savedIconIndex != 0;
+
+        if (!isExistingConfig) {
+            Log.d("WidgetConfigActivity", "No existing configuration found or using defaults. Skipping restore.");
+            updateSaveButtonState(); // Update button state even if not restoring
             return;
         }
+        
+        restoringSelections = true; // Set flag to prevent listeners updating button state prematurely
 
-        // Get saved values
-        String savedDomain = getServiceDomain(this, appWidgetId);
-        String savedService = getServiceName(this, appWidgetId);
-        String savedEntityId = getEntityId(this, appWidgetId);
-
-        // If we have saved values and this is an existing widget, try to restore them
-        if (!savedDomain.equals("light") || !savedService.equals("toggle") ||
-                !savedEntityId.equals("light.living_room")) {
-
-            // Find domain in spinner
-            for (int i = 0; i < domains.size(); i++) {
-                if (domains.get(i).equals(savedDomain)) {
-                    spinnerDomain.setSelection(i);
-                    selectedDomain = savedDomain;
-                    break;
-                }
-            }
-
-            // Update services for this domain
-            if (selectedDomain != null) {
-                updateServicesSpinner();
-
-                // Find service in spinner
-                if (servicesForSelectedDomain != null) {
-                    for (int i = 0; i < servicesForSelectedDomain.size(); i++) {
-                        if (servicesForSelectedDomain.get(i).getService().equals(savedService)) {
-                            // +1 for prompt item
-                            spinnerService.setSelection(i + 1);
-                            selectedService = servicesForSelectedDomain.get(i);
-                            break;
-                        }
-                    }
-                }
-
-                // Update entities for this domain
-                updateEntitiesSpinner();
-
-                // Find entity in spinner
-                if (entitiesByDomain.containsKey(selectedDomain)) {
-                    List<HomeAssistantEntity> entities = entitiesByDomain.get(selectedDomain);
-                    for (int i = 0; i < entities.size(); i++) {
-                        if (entities.get(i).getEntityId().equals(savedEntityId)) {
-                            // +1 for prompt item
-                            spinnerEntity.setSelection(i + 1);
-                            selectedEntity = entities.get(i);
-                            break;
-                        }
-                    }
-                }
+        // Find domain index in the domains list (derived from servicesByDomain keys)
+        int domainIndexToSelect = -1;
+        for (int i = 0; i < domains.size(); i++) {
+            if (domains.get(i).equals(savedDomain)) {
+                domainIndexToSelect = i + 1; // Add +1 for the prompt item
+                break;
             }
         }
 
-        // Update save button state
-        updateSaveButtonState();
+        Log.d("WidgetConfigActivity", "Found domain index: " + domainIndexToSelect);
+
+        if (domainIndexToSelect != -1) {
+            // Store the target values for later verification
+            final String targetDomain = savedDomain;
+            final String targetService = savedService;
+            final String targetEntityId = savedEntityId;
+            
+            // Set the domain selection - this will trigger updateServicesSpinner and updateEntitiesSpinner
+            spinnerDomain.setSelection(domainIndexToSelect);
+            
+            // Post the rest of the restoration with a slight delay to ensure UI updates are complete
+            spinnerDomain.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    Log.d("WidgetConfigActivity", "Running delayed post-restore runnable.");
+                    
+                    // Verify domain was correctly set before attempting to restore service and entity
+                    if (selectedDomain == null || !selectedDomain.equals(targetDomain)) {
+                        Log.w("WidgetConfigActivity", "Domain selection failed or changed. Expected: " + 
+                              targetDomain + ", Actual: " + selectedDomain);
+                        // Try setting domain again directly
+                        selectedDomain = targetDomain;
+                        updateServicesSpinner();
+                        updateEntitiesSpinner();
+                    }
+                    
+                    // Find service in spinner
+                    if (selectedDomain != null && servicesForSelectedDomain != null) {
+                        Log.d("WidgetConfigActivity", "Restoring service selection. Found " + servicesForSelectedDomain.size() + " services for domain " + selectedDomain);
+                        int serviceIndexToSelect = -1;
+                        for (int i = 0; i < servicesForSelectedDomain.size(); i++) {
+                            if (servicesForSelectedDomain.get(i).getService().equals(targetService)) {
+                                serviceIndexToSelect = i + 1; // +1 for prompt item
+                                break;
+                            }
+                        }
+                        if (serviceIndexToSelect != -1) {
+                            Log.d("WidgetConfigActivity", "Found service index: " + serviceIndexToSelect);
+                            spinnerService.setSelection(serviceIndexToSelect);
+                            
+                            // Also set the actual service object in case spinner listener fails
+                            for (HomeAssistantService service : servicesForSelectedDomain) {
+                                if (service.getService().equals(targetService)) {
+                                    selectedService = service;
+                                    break;
+                                }
+                            }
+                        } else {
+                            Log.w("WidgetConfigActivity", "Saved service '" + targetService + "' not found in spinner for domain '" + selectedDomain + "'");
+                        }
+                    } else {
+                        Log.w("WidgetConfigActivity", "Cannot restore service: selectedDomain is null or servicesForSelectedDomain is null.");
+                    }
+
+                    // Allow a short delay for service selection to be processed before setting entity
+                    spinnerService.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            // Find entity in spinner
+                            if (selectedDomain != null && entitiesByDomain != null && entitiesByDomain.containsKey(selectedDomain)) {
+                                List<HomeAssistantEntity> entities = entitiesByDomain.get(selectedDomain);
+                                // Ensure entities list is sorted the same way as in updateEntitiesSpinner
+                                Collections.sort(entities, Comparator.comparing(HomeAssistantEntity::getFriendlyName));
+                                Log.d("WidgetConfigActivity", "Restoring entity selection. Found " + entities.size() + " entities for domain " + selectedDomain);
+                                int entityIndexToSelect = -1;
+                                for (int i = 0; i < entities.size(); i++) {
+                                    if (entities.get(i).getEntityId().equals(targetEntityId)) {
+                                        entityIndexToSelect = i + 1; // +1 for prompt item
+                                        break;
+                                    }
+                                }
+                                if (entityIndexToSelect != -1) {
+                                    Log.d("WidgetConfigActivity", "Found entity index: " + entityIndexToSelect);
+                                    spinnerEntity.setSelection(entityIndexToSelect);
+                                    
+                                    // Also set the actual entity object in case spinner listener fails
+                                    for (HomeAssistantEntity entity : entities) {
+                                        if (entity.getEntityId().equals(targetEntityId)) {
+                                            selectedEntity = entity;
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    Log.w("WidgetConfigActivity", "Saved entity '" + targetEntityId + "' not found in spinner for domain '" + selectedDomain + "'");
+                                }
+                            } else {
+                                Log.w("WidgetConfigActivity", "Cannot restore entity: selectedDomain is null or entitiesByDomain is null/doesn't contain domain.");
+                            }
+
+                            // Restore icon selection
+                            if (savedIconIndex >= 0 && savedIconIndex < spinnerIcon.getAdapter().getCount()) {
+                                spinnerIcon.setSelection(savedIconIndex);
+                            } else {
+                                Log.w("WidgetConfigActivity", "Saved icon index " + savedIconIndex + " is out of bounds.");
+                            }
+
+                            // Verify all selections were restored correctly
+                            Log.d("WidgetConfigActivity", "Final state - Domain: " + selectedDomain + 
+                                 ", Service: " + (selectedService != null ? selectedService.getService() : "null") + 
+                                 ", Entity: " + (selectedEntity != null ? selectedEntity.getEntityId() : "null"));
+                                 
+                            // Update save button state *after* all selections are potentially restored
+                            restoringSelections = false; // Clear flag
+                            updateSaveButtonState();
+                            Log.d("WidgetConfigActivity", "Finished restoring selections.");
+                        }
+                    }, 100); // Short delay to ensure service spinner has updated
+                }
+            }, 250); // Quarter second delay to ensure domain spinner has fully updated
+        } else {
+            Log.w("WidgetConfigActivity", "Saved domain '" + savedDomain + "' not found in spinner. Cannot restore service/entity.");
+            restoringSelections = false; // Clear flag
+            updateSaveButtonState(); // Still update button state
+        }
     }
 
     /**
@@ -877,9 +1013,25 @@ public class WidgetConfigActivity extends Activity {
         prefs.putString(PREF_PREFIX_KEY + appWidgetId + PREF_ENTITY_KEY, entityId);
         prefs.putInt(PREF_PREFIX_KEY + appWidgetId + PREF_ICON_KEY, iconIndex);
         prefs.putInt(PREF_PREFIX_KEY + appWidgetId + PREF_TRANSPARENCY_KEY, transparency);
-        prefs.putBoolean(PREF_PREFIX_KEY + appWidgetId + PREF_REQUIRE_CONFIRMATION_KEY, switchRequireConfirmation.isChecked());
-        prefs.putString(PREF_PREFIX_KEY + appWidgetId + PREF_CONFIRMATION_MESSAGE_KEY, editConfirmationMessage.getText().toString().trim());
+        
+        // Save confirmation settings
+        boolean requireConfirmation = switchRequireConfirmation.isChecked();
+        String confirmationMessage = editConfirmationMessage.getText().toString().trim();
+        
+        prefs.putBoolean(PREF_PREFIX_KEY + appWidgetId + PREF_REQUIRE_CONFIRMATION_KEY, requireConfirmation);
+        prefs.putString(PREF_PREFIX_KEY + appWidgetId + PREF_CONFIRMATION_MESSAGE_KEY, confirmationMessage);
+        
         prefs.apply();
+        
+        // Debug log for saving configuration
+        Log.d("WidgetConfigActivity", "Saved widget configuration: " +
+              "title=" + title + 
+              ", domain=" + domain + 
+              ", service=" + service + 
+              ", entity=" + entityId + 
+              ", icon=" + iconIndex +
+              ", requireConfirmation=" + requireConfirmation +
+              ", confirmationMessage=" + confirmationMessage);
     }
 
     private void updateWidget() {
