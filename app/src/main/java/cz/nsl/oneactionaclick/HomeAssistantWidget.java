@@ -93,9 +93,8 @@ public class HomeAssistantWidget extends AppWidgetProvider {
         
         PendingIntent actionPendingIntent = PendingIntent.getActivity(context, appWidgetId, actionIntent, flags);
         
-        // Set click listener to perform action (normal click)
-        views.setOnClickPendingIntent(R.id.widget_text, actionPendingIntent);
-        views.setOnClickPendingIntent(R.id.widget_icon, actionPendingIntent);
+        // Set click listener on the container to make the entire widget clickable
+        views.setOnClickPendingIntent(R.id.widget_container, actionPendingIntent);
         
         // For older Android versions (pre-Android 12), add a gear icon for configuration
         // For Android 12+ (S), rely on the system's built-in widget configuration menu
