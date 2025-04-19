@@ -293,6 +293,25 @@ public class WidgetConfigActivity extends Activity {
             editWidgetTitle.setText(savedTitle);
         }
 
+        // Add a text change listener to the title field to update validation in real-time
+        editWidgetTitle.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                // Not needed
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                // Not needed
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {
+                // Update validation state when title text changes
+                updateSaveButtonState();
+            }
+        });
+
         // Load saved transparency value
         int savedTransparency = getTransparency(this, appWidgetId);
         transparencySeekBar.setProgress(savedTransparency);
