@@ -86,19 +86,34 @@ fi
 
 # If this is a release build, use the keystore from the project root
 if [[ "${BUILD_TYPE}" == "release" ]]; then
-  # Define keystore variables - for environment variables in the Docker container
-  KEYSTORE_PASSWORD="androidSuperPass"
-  KEY_PASSWORD="changeit"
-  KEY_ALIAS="release"
+  # Define keystore variables
+  KEYSTORE_PASSWORD=${KEYSTORE_PASSWORD:-"androidSuperPass"}
+  KEY_PASSWORD=${KEY_PASSWORD:-"changeit"}
+  KEY_ALIAS=${KEY_ALIAS:-"release"}
   
-  # Check if keystore exists
+  # Check if keystore exists, if not, generate one for CI
   if [ ! -f "${APP_DIR}/keystore.jks" ]; then
-    echo "Error: Keystore file not found at ${APP_DIR}/keystore.jks"
-    echo "Please ensure the keystore exists before running a release build."
-    exit 1
+    echo "Keystore not found, generating a new one for CI build..."
+    if [ -f "${APP_DIR}/generate-keystore.sh" ]; then
+      # Execute the keystore generation script if it exists
+      chmod +x "${APP_DIR}/generate-keystore.sh"
+      "${APP_DIR}/generate-keystore.sh"
+    else
+      # Generate a basic keystore directly
+      echo "Generating basic keystore..."
+      keytool -genkeypair -v \
+        -keystore "${APP_DIR}/keystore.jks" \
+        -alias "${KEY_ALIAS}" \
+        -keyalg RSA \
+        -keysize 2048 \
+        -validity 10000 \
+        -storepass "${KEYSTORE_PASSWORD}" \
+        -keypass "${KEY_PASSWORD}" \
+        -dname "CN=HA One Action Click,OU=Development,O=Organization,L=City,S=State,C=CZ"
+    fi
   fi
   
-  echo "Using existing keystore from project root: ${APP_DIR}/keystore.jks"
+  echo "Using keystore from project root: ${APP_DIR}/keystore.jks"
   
   # Run Docker with existing keystore
   docker run --rm \
