@@ -9,4 +9,7 @@
     <color name="iconColor">#FFFFFF</color>
     <color name="windowBackground">#FFFFFF</color>
     <color name="dialogBackground">#FFFFFF</color>
+    
+    <!-- Launcher icon background color -->
+    <color name="ic_launcher_background">#FFFFFF</color>
 </resources>

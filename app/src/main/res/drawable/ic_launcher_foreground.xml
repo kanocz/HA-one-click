@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- House base - positioned for adaptive icon padding -->
+    <path
+        android:fillColor="#3F51B5"
+        android:pathData="M39,78V54H54V78H73V48H84L54,22L24,48H35V78H39Z" />
+    
+    <!-- Click/tap indicator -->
+    <path
+        android:fillColor="#FFEB3B"
+        android:pathData="M75,45m-10,0a10,10 0,1 1,20 0a10,10 0,1 1,-20 0" />
+    
+    <!-- Pulse effect around the click -->
+    <path
+        android:strokeColor="#FFEB3B"
+        android:strokeWidth="2.5"
+        android:strokeAlpha="0.7"
+        android:pathData="M75,45m-15,0a15,15 0,1 1,30 0a15,15 0,1 1,-30 0" />
+</vector>
