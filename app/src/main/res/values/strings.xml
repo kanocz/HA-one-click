@@ -81,6 +81,10 @@
     <string name="discovery_none_found">No Home Assistant instances found</string>
     <string name="discovery_error">Error during discovery: %1$s</string>
     
+    <!-- QR code scanning -->
+    <string name="scan_qr">Scan QR</string>
+    <string name="scan_qr_prompt">Scan a QR code containing your Home Assistant token</string>
+    
     <!-- API Request Log strings -->
     <string name="show_logs">Show Logs</string>
     <string name="hide_logs">Hide Logs</string>

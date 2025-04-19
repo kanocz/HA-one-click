@@ -19,6 +19,9 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.zxing.integration.android.IntentIntegrator;
+import com.google.zxing.integration.android.IntentResult;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -202,6 +205,15 @@ public class SettingsActivity extends Activity {
             @Override
             public void onClick(View v) {
                 testHomeAssistantConnection();
+            }
+        });
+        
+        // QR code scan button click handler
+        Button buttonScanToken = findViewById(R.id.button_scan_token);
+        buttonScanToken.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startQRCodeScan();
             }
         });
     }
@@ -527,6 +539,96 @@ public class SettingsActivity extends Activity {
                 });
             }
         });
+    }
+
+    /**
+     * Start the QR code scanning process
+     */
+    private void startQRCodeScan() {
+        // Initialize the IntentIntegrator
+        IntentIntegrator integrator = new IntentIntegrator(this);
+        
+        // Configure the scanner
+        integrator.setDesiredBarcodeFormats(IntentIntegrator.QR_CODE);
+        integrator.setPrompt("Scan a QR code containing your Home Assistant token");
+        integrator.setCameraId(0);  // Use default camera
+        integrator.setBeepEnabled(true);
+        integrator.setBarcodeImageEnabled(false);
+        integrator.setOrientationLocked(false);
+        
+        // Start the scanning activity
+        integrator.initiateScan();
+    }
+    
+    /**
+     * Handle the result from the QR code scanner
+     */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // Get the scan result from the QR code scanner
+        IntentResult result = IntentIntegrator.parseActivityResult(requestCode, resultCode, data);
+        
+        if (result != null) {
+            if (result.getContents() != null) {
+                // Get the scanned content
+                String scannedText = result.getContents();
+                
+                // Process the scanned token
+                processScannedToken(scannedText);
+            } else {
+                // User cancelled the scan
+                Toast.makeText(this, "Scan cancelled", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            // This is not from our QR scanner, pass to parent
+            super.onActivityResult(requestCode, resultCode, data);
+        }
+    }
+    
+    /**
+     * Process the token obtained from QR code scanning
+     * @param scannedText The text content from the QR code
+     */
+    private void processScannedToken(String scannedText) {
+        // Check if the scanned text is not empty
+        if (scannedText == null || scannedText.isEmpty()) {
+            Toast.makeText(this, "Empty QR code detected", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        
+        // Try to clean up the token
+        String token = scannedText.trim();
+        
+        // If it's a URL or contains other data, try to extract just the token
+        if (token.startsWith("http") || token.contains("token=")) {
+            // Try to extract token from URL query parameters
+            try {
+                Uri uri = Uri.parse(token);
+                String extractedToken = uri.getQueryParameter("token");
+                if (extractedToken != null && !extractedToken.isEmpty()) {
+                    token = extractedToken;
+                }
+            } catch (Exception e) {
+                // If parsing fails, use the original text
+            }
+        }
+        
+        // Remove any surrounding quotes if present
+        if ((token.startsWith("\"") && token.endsWith("\"")) || 
+            (token.startsWith("'") && token.endsWith("'"))) {
+            token = token.substring(1, token.length() - 1);
+        }
+        
+        // Set the token in the input field
+        editHomeAssistantToken.setText(token);
+        
+        // Show success message
+        Toast.makeText(this, "Token scanned successfully", Toast.LENGTH_SHORT).show();
+        
+        // Switch to token authentication if not already selected
+        if (!radioToken.isChecked()) {
+            radioToken.setChecked(true);
+        }
     }
 
     // Static methods to retrieve app settings
